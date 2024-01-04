@@ -2,7 +2,7 @@
 package oauth
 
 // Helper function to check if the requested scopes are available for the application.
-func areScopesAvailable(applicationScopes, requestedScopes []string) bool {
+func AreScopesAvailable(applicationScopes, requestedScopes []string) bool {
 	for _, scope := range requestedScopes {
 		if !contains(applicationScopes, scope) {
 			return false

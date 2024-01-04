@@ -13,6 +13,7 @@ import (
 	"gopkg.in/oauth2.v3/store"
 
 	"nkConnect/internal/app"
+	"nkConnect/internal/oauth"
 )
 
 var manager *manage.Manager
@@ -28,11 +29,7 @@ func Run() {
 	manager.MustTokenStorage(store.NewMemoryTokenStore())
 
 	// client memory store
-	clientStore := store.NewClientStore()
-	manager.MapClientStorage(clientStore)
-
-	// application store
-	applicationStore := app.NewApplicationStore()
+	manager.MapClientStorage(app.ClientStore)
 
 	srv = server.NewDefaultServer(manager)
 	srv.SetAllowGetAccessRequest(true)
@@ -84,7 +81,7 @@ func handleRegisterApplication(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Register the application
-	appID, err := applicationStore.RegisterApplication(requestData.Name, requestData.Scopes)
+	appID, err := app.GetApplicationStore().RegisterApplication(requestData.Name, requestData.Scopes)
 	if err != nil {
 		http.Error(w, "Failed to register application", http.StatusInternalServerError)
 		return
@@ -94,8 +91,6 @@ func handleRegisterApplication(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(responseData)
 }
-
-// internal/server/http.go
 
 // handleRegisterClient handles the "/register/client" endpoint.
 func handleRegisterClient(w http.ResponseWriter, r *http.Request) {
@@ -116,20 +111,20 @@ func handleRegisterClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the requested application exists
-	application, err := applicationStore.GetApplicationByName(requestData.ApplicationName)
+	application, err := app.GetApplicationStore().GetApplicationByName(requestData.ApplicationName)
 	if err != nil {
 		http.Error(w, "Requested application does not exist", http.StatusBadRequest)
 		return
 	}
 
 	// Check if the requested scopes are available for the application
-	if !areScopesAvailable(application.Scopes, requestData.Scopes) {
+	if !oauth.AreScopesAvailable(application.Scopes, requestData.Scopes) {
 		http.Error(w, "Invalid or unavailable scopes requested", http.StatusBadRequest)
 		return
 	}
 
 	// Call the RegisterClient function to handle client registration
-	newClient, err := app.RegisterClient(application, requestData.Scopes)
+	newClient, err := app.GetApplicationStore().RegisterClient(application, requestData.Scopes)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to register client: %v", err), http.StatusInternalServerError)
 		return

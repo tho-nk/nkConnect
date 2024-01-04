@@ -9,21 +9,46 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"gopkg.in/oauth2.v3/store"
 )
+
+var ClientStore *store.ClientStore
 
 // MyApplication represents an application with associated scopes.
 type MyApplication struct {
-	ID     string
-	Name   string
-	Scopes []string
+	ID      string
+	Name    string
+	Scopes  []string
+	Clients []*MyClient
 }
 
 // MyClient represents a custom client model that includes scopes.
 type MyClient struct {
-	ID     string
-	Secret string
-	Domain string
-	Scopes []string
+	ID                string
+	Secret            string
+	Domain            string
+	ApplicationScopes map[*MyApplication][]string
+}
+
+// GetID implements the oauth2.ClientInfo interface.
+func (c *MyClient) GetID() string {
+	return c.ID
+}
+
+// GetSecret implements the oauth2.ClientInfo interface.
+func (c *MyClient) GetSecret() string {
+	return c.Secret
+}
+
+// GetDomain implements the oauth2.ClientInfo interface.
+func (c *MyClient) GetDomain() string {
+	return c.Domain
+}
+
+// GetUserID implements the oauth2.ClientInfo interface.
+func (c *MyClient) GetUserID() string {
+	// You might return some default user ID or an empty string depending on your use case.
+	return ""
 }
 
 // ApplicationStore is a simple in-memory store for applications.
@@ -32,17 +57,21 @@ type ApplicationStore struct {
 	applications map[string]MyApplication
 }
 
-var applicationStore *ApplicationStore
-
-func init() {
-	applicationStore = NewApplicationStore()
-}
+var applicationStoreInstance *ApplicationStore
 
 // NewApplicationStore creates a new ApplicationStore instance.
 func NewApplicationStore() *ApplicationStore {
 	return &ApplicationStore{
 		applications: make(map[string]MyApplication),
 	}
+}
+
+// GetApplicationStore returns the singleton instance of ApplicationStore.
+func GetApplicationStore() *ApplicationStore {
+	if applicationStoreInstance == nil {
+		applicationStoreInstance = NewApplicationStore()
+	}
+	return applicationStoreInstance
 }
 
 // RegisterApplication registers a new application.
@@ -59,9 +88,10 @@ func (s *ApplicationStore) RegisterApplication(name string, scopes []string) (st
 	appID := uuid.New().String()
 
 	application := MyApplication{
-		ID:     appID,
-		Name:   name,
-		Scopes: scopes,
+		ID:      appID,
+		Name:    name,
+		Scopes:  scopes,
+		Clients: nil,
 	}
 
 	s.applications[name] = application
@@ -104,13 +134,14 @@ func (s *ApplicationStore) RegisterClient(application MyApplication, scopes []st
 	clientSecret := generateClientSecret(application.Name, scopes)
 
 	client := MyClient{
-		ID:     clientID,
-		Secret: clientSecret,
-		Domain: "http://localhost:9094",
-		Scopes: scopes,
+		ID:                clientID,
+		Secret:            clientSecret,
+		Domain:            "http://localhost:9094",
+		ApplicationScopes: make(map[*MyApplication][]string),
 	}
+	client.ApplicationScopes[&application] = scopes
 
-	err := s.clientStore.Set(clientID, &client)
+	err := ClientStore.Set(clientID, &client)
 	if err != nil {
 		return MyClient{}, fmt.Errorf("failed to register client: %v", err)
 	}
@@ -139,4 +170,9 @@ func hashData(data string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(data))
 	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+// Initialize ClientStore
+func init() {
+	ClientStore = store.NewClientStore()
 }

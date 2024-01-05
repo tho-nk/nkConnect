@@ -9,67 +9,35 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"gopkg.in/oauth2.v3/store"
 )
 
-var ClientStore *store.ClientStore
-
-// MyApplication represents an application with associated scopes.
-type MyApplication struct {
+// Application represents an application with associated scopes.
+type Application struct {
 	ID      string
 	Name    string
 	Scopes  []string
-	Clients []*MyClient
-}
-
-// MyClient represents a custom client model that includes scopes.
-type MyClient struct {
-	ID                string
-	Secret            string
-	Domain            string
-	ApplicationScopes map[*MyApplication][]string
-}
-
-// GetID implements the oauth2.ClientInfo interface.
-func (c *MyClient) GetID() string {
-	return c.ID
-}
-
-// GetSecret implements the oauth2.ClientInfo interface.
-func (c *MyClient) GetSecret() string {
-	return c.Secret
-}
-
-// GetDomain implements the oauth2.ClientInfo interface.
-func (c *MyClient) GetDomain() string {
-	return c.Domain
-}
-
-// GetUserID implements the oauth2.ClientInfo interface.
-func (c *MyClient) GetUserID() string {
-	// You might return some default user ID or an empty string depending on your use case.
-	return ""
+	Clients []*Client
 }
 
 // ApplicationStore is a simple in-memory store for applications.
 type ApplicationStore struct {
 	mu           sync.Mutex
-	applications map[string]MyApplication
+	applications map[string]Application
 }
 
 var applicationStoreInstance *ApplicationStore
 
 // NewApplicationStore creates a new ApplicationStore instance.
-func NewApplicationStore() *ApplicationStore {
+func newApplicationStore() *ApplicationStore {
 	return &ApplicationStore{
-		applications: make(map[string]MyApplication),
+		applications: make(map[string]Application),
 	}
 }
 
 // GetApplicationStore returns the singleton instance of ApplicationStore.
 func GetApplicationStore() *ApplicationStore {
 	if applicationStoreInstance == nil {
-		applicationStoreInstance = NewApplicationStore()
+		applicationStoreInstance = newApplicationStore()
 	}
 	return applicationStoreInstance
 }
@@ -87,7 +55,7 @@ func (s *ApplicationStore) RegisterApplication(name string, scopes []string) (st
 	// Generate a unique ID (UUID) for the new application
 	appID := uuid.New().String()
 
-	application := MyApplication{
+	application := Application{
 		ID:      appID,
 		Name:    name,
 		Scopes:  scopes,
@@ -100,7 +68,7 @@ func (s *ApplicationStore) RegisterApplication(name string, scopes []string) (st
 }
 
 // GetApplicationByID retrieves an application by its ID.
-func (s *ApplicationStore) GetApplicationByID(appID string) (MyApplication, error) {
+func (s *ApplicationStore) GetApplicationByID(appID string) (Application, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -110,40 +78,40 @@ func (s *ApplicationStore) GetApplicationByID(appID string) (MyApplication, erro
 		}
 	}
 
-	return MyApplication{}, fmt.Errorf("application not found")
+	return Application{}, fmt.Errorf("application not found")
 }
 
 // GetApplicationByName retrieves an application by its name.
-func (s *ApplicationStore) GetApplicationByName(name string) (MyApplication, error) {
+func (s *ApplicationStore) GetApplicationByName(name string) (Application, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	application, ok := s.applications[name]
 	if !ok {
-		return MyApplication{}, fmt.Errorf("application not found")
+		return Application{}, fmt.Errorf("application not found")
 	}
 
 	return application, nil
 }
 
 // RegisterClient registers a new client for the given application and scopes.
-func (s *ApplicationStore) RegisterClient(application MyApplication, scopes []string) (MyClient, error) {
+func (s *ApplicationStore) RegisterClient(application Application, scopes []string) (Client, error) {
 	// Here, you can generate a client ID and secret, store them, and return the client information.
 	// Example:
 	clientID := generateClientID(application.Name, scopes)
 	clientSecret := generateClientSecret(application.Name, scopes)
 
-	client := MyClient{
+	client := Client{
 		ID:                clientID,
 		Secret:            clientSecret,
 		Domain:            "http://localhost:9094",
-		ApplicationScopes: make(map[*MyApplication][]string),
+		ApplicationScopes: make(map[*Application][]string),
 	}
 	client.ApplicationScopes[&application] = scopes
 
-	err := ClientStore.Set(clientID, &client)
+	err := GetClientStore().Set(clientID, &client)
 	if err != nil {
-		return MyClient{}, fmt.Errorf("failed to register client: %v", err)
+		return Client{}, fmt.Errorf("failed to register client: %v", err)
 	}
 
 	return client, nil
@@ -170,9 +138,4 @@ func hashData(data string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(data))
 	return hex.EncodeToString(hasher.Sum(nil))
-}
-
-// Initialize ClientStore
-func init() {
-	ClientStore = store.NewClientStore()
 }

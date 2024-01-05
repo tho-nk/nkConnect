@@ -29,7 +29,7 @@ func Run() {
 	manager.MustTokenStorage(store.NewMemoryTokenStore())
 
 	// client memory store
-	manager.MapClientStorage(app.ClientStore)
+	manager.MapClientStorage(app.GetClientStore())
 
 	srv = server.NewDefaultServer(manager)
 	srv.SetAllowGetAccessRequest(true)

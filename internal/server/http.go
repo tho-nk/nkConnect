@@ -27,12 +27,10 @@ func NewHttpServer() *HttpServer {
 	httpServer := &HttpServer{}
 	httpServer.manager = manage.NewDefaultManager()
 	httpServer.manager.SetAuthorizeCodeTokenCfg(manage.DefaultAuthorizeCodeTokenCfg)
-	httpServer.manager.SetClientTokenCfg(&manage.Config{AccessTokenExp: 3600}) // Set the access token expiration time
+	// httpServer.manager.SetClientTokenCfg(&manage.Config{AccessTokenExp: 3600}) // Set the access token expiration time
 	httpServer.manager.SetRefreshTokenCfg(manage.DefaultRefreshTokenCfg)
-
 	// token memory store
 	httpServer.manager.MustTokenStorage(store.NewMemoryTokenStore())
-
 	// client memory store
 	httpServer.manager.MapClientStorage(app.GetClientStore())
 
@@ -155,15 +153,56 @@ func (httpServer *HttpServer) handleRegisterClient(w http.ResponseWriter, r *htt
 
 // handleTokenRequest handles the "/token" endpoint.
 func (httpServer *HttpServer) handleTokenRequest(w http.ResponseWriter, r *http.Request) {
-	httpServer.srv.HandleTokenRequest(w, r)
+	err := httpServer.srv.HandleTokenRequest(w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // handleInspectToken handles the "/inspect" endpoint.
 func (httpServer *HttpServer) handleInspectToken(w http.ResponseWriter, r *http.Request) {
-	// Implementation...
+	// Parse the token from the request
+	token, err := httpServer.srv.ValidationBearerToken(r)
+	if err != nil {
+		http.Error(w, "Invalid or expired token", http.StatusBadRequest)
+		return
+	}
+
+	// Prepare the response
+	response := map[string]interface{}{
+		"active":    true, // Indicates whether the token is active
+		"client_id": token.GetClientID(),
+		"exp":       token.GetAccessCreateAt().Add(token.GetAccessExpiresIn()).Unix(),
+		// Add other relevant token information here
+	}
+
+	// Convert the response to JSON
+	jsonResponse, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, "Error creating JSON response", http.StatusInternalServerError)
+		return
+	}
+
+	// Set the response headers
+	w.Header().Set("Content-Type", "application/json")
+
+	// Write the JSON response
+	_, err = w.Write(jsonResponse)
+	if err != nil {
+		log.Println("Error writing response:", err)
+	}
 }
 
 // handleValidateToken handles the "/validate" endpoint.
 func (httpServer *HttpServer) handleValidateToken(w http.ResponseWriter, r *http.Request) {
-	// Implementation...
+	// Parse the token from the request
+	_, err := httpServer.srv.ValidationBearerToken(r)
+	if err != nil {
+		http.Error(w, "Invalid or expired token", http.StatusBadRequest)
+		return
+	}
+
+	// Token is valid, return a success response
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Token is valid"))
 }

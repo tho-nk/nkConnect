@@ -1,0 +1,28 @@
+name: Docker Build and Push
+
+on:
+  push:
+    branches:
+      - main # Replace with your repository's default branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+
+      - name: Login to Docker Hub
+        run: docker login -u ${{ secrets.DOCKER_USER_NAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build . -t iainttho/nk-connect:0.0.1
+          docker tag iainttho/nk-connect:0.0.1 iainttho/nk-connect:latest
+          docker push iainttho/nk-connect:latest
+          docker push iainttho/nk-connect:0.0.1
+
+        env:
+          DOCKER_CLI_ACI: "1"
+        working-directory: ./

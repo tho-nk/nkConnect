@@ -18,11 +18,13 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
-          docker build . -t iainttho/nk-connect:0.0.1
-          docker tag iainttho/nk-connect:0.0.1 iainttho/nk-connect:latest
-          docker push iainttho/nk-connect:latest
-          docker push iainttho/nk-connect:0.0.1
-
+          docker build . -t iainttho/nk-connect:0.0.1-${{ github.run_number }} || exit 1
+          docker tag iainttho/nk-connect:0.0.1-${{ github.run_number }} iainttho/nk-connect:latest || exit 1
+          docker push iainttho/nk-connect:latest || exit 1
+          docker push iainttho/nk-connect:0.0.1-${{ github.run_number }} || exit 1
         env:
           DOCKER_CLI_ACI: "1"
         working-directory: ./
+
+      - name: Logout from Docker Hub
+        run: docker logout

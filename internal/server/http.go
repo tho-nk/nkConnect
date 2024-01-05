@@ -62,18 +62,17 @@ func GetHttpServerInstance() *HttpServer {
 // GetUserID implements the oauth2.ClientInfo interface.
 func (httpServer *HttpServer) initHandle() {
 	// Register HTTP endpoints...
-	http.HandleFunc("/register/application", httpServer.handleRegisterApplication)
-	http.HandleFunc("/register/client", httpServer.handleRegisterClient)
-	http.HandleFunc("/token", httpServer.handleTokenRequest)
-	http.HandleFunc("/inspect", httpServer.handleInspectToken)
-	http.HandleFunc("/validate", httpServer.handleValidateToken)
+	http.HandleFunc("/nk-connect/register/application", httpServer.handleRegisterApplication)
+	http.HandleFunc("/nk-connect/register/client", httpServer.handleRegisterClient)
+	http.HandleFunc("/nk-connect/token", httpServer.handleTokenRequest)
+	http.HandleFunc("/nk-connect/inspect", httpServer.handleInspectToken)
+	http.HandleFunc("/nk-connect/validate", httpServer.handleValidateToken)
 
 }
 
 // Run initializes and runs the OAuth2 server.
 func (httpServer *HttpServer) Run() {
 	log.Fatal(http.ListenAndServe(":9096", nil))
-
 }
 
 // handleRegisterApplication handles the "/register/application" endpoint.

@@ -13,52 +13,71 @@ import (
 	"gopkg.in/oauth2.v3/store"
 
 	"nkConnect/internal/app"
-	"nkConnect/internal/oauth"
+	"nkConnect/internal/utility"
 )
 
-var manager *manage.Manager
-var srv *server.Server
+type HttpServer struct {
+	manager *manage.Manager
+	srv     *server.Server
+}
 
-// Run initializes and runs the OAuth2 server.
-func Run() {
-	manager = manage.NewDefaultManager()
-	manager.SetAuthorizeCodeTokenCfg(manage.DefaultAuthorizeCodeTokenCfg)
-	manager.SetClientTokenCfg(&manage.Config{AccessTokenExp: 3600}) // Set the access token expiration time
+var httpServerInstance *HttpServer
+
+func NewHttpServer() *HttpServer {
+	httpServer := &HttpServer{}
+	httpServer.manager = manage.NewDefaultManager()
+	httpServer.manager.SetAuthorizeCodeTokenCfg(manage.DefaultAuthorizeCodeTokenCfg)
+	httpServer.manager.SetClientTokenCfg(&manage.Config{AccessTokenExp: 3600}) // Set the access token expiration time
+	httpServer.manager.SetRefreshTokenCfg(manage.DefaultRefreshTokenCfg)
 
 	// token memory store
-	manager.MustTokenStorage(store.NewMemoryTokenStore())
+	httpServer.manager.MustTokenStorage(store.NewMemoryTokenStore())
 
 	// client memory store
-	manager.MapClientStorage(app.GetClientStore())
+	httpServer.manager.MapClientStorage(app.GetClientStore())
 
-	srv = server.NewDefaultServer(manager)
-	srv.SetAllowGetAccessRequest(true)
-	srv.SetClientInfoHandler(server.ClientFormHandler)
-	manager.SetRefreshTokenCfg(manage.DefaultRefreshTokenCfg)
-
-	srv.SetInternalErrorHandler(func(err error) (re *errors.Response) {
+	httpServer.srv = server.NewDefaultServer(httpServer.manager)
+	httpServer.srv.SetAllowGetAccessRequest(true)
+	httpServer.srv.SetClientInfoHandler(server.ClientFormHandler)
+	httpServer.srv.SetInternalErrorHandler(func(err error) (re *errors.Response) {
 		log.Println("Internal Error:", err.Error())
 		return
 	})
-
-	srv.SetResponseErrorHandler(func(re *errors.Response) {
+	httpServer.srv.SetResponseErrorHandler(func(re *errors.Response) {
 		log.Println("Response Error:", re.Error.Error())
 	})
 
-	// Register HTTP endpoints...
-	http.HandleFunc("/register/application", handleRegisterApplication)
-	http.HandleFunc("/register/client", handleRegisterClient)
-	http.HandleFunc("/token", handleTokenRequest)
-	http.HandleFunc("/inspect", handleInspectToken)
-	http.HandleFunc("/validate", handleValidateToken)
-
-	log.Fatal(http.ListenAndServe(":9096", nil))
+	httpServer.initHandle()
+	return httpServer
 }
 
-// Add your endpoint handler functions here...
+// GetApplicationStore returns the singleton instance of ApplicationStore.
+func GetHttpServerInstance() *HttpServer {
+	if httpServerInstance == nil {
+		httpServerInstance = NewHttpServer()
+	}
+	return httpServerInstance
+}
+
+// GetUserID implements the oauth2.ClientInfo interface.
+func (httpServer *HttpServer) initHandle() {
+	// Register HTTP endpoints...
+	http.HandleFunc("/register/application", httpServer.handleRegisterApplication)
+	http.HandleFunc("/register/client", httpServer.handleRegisterClient)
+	http.HandleFunc("/token", httpServer.handleTokenRequest)
+	http.HandleFunc("/inspect", httpServer.handleInspectToken)
+	http.HandleFunc("/validate", httpServer.handleValidateToken)
+
+}
+
+// Run initializes and runs the OAuth2 server.
+func (httpServer *HttpServer) Run() {
+	log.Fatal(http.ListenAndServe(":9096", nil))
+
+}
 
 // handleRegisterApplication handles the "/register/application" endpoint.
-func handleRegisterApplication(w http.ResponseWriter, r *http.Request) {
+func (httpServer *HttpServer) handleRegisterApplication(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -93,7 +112,7 @@ func handleRegisterApplication(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleRegisterClient handles the "/register/client" endpoint.
-func handleRegisterClient(w http.ResponseWriter, r *http.Request) {
+func (httpServer *HttpServer) handleRegisterClient(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -118,7 +137,7 @@ func handleRegisterClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the requested scopes are available for the application
-	if !oauth.AreScopesAvailable(application.Scopes, requestData.Scopes) {
+	if !utility.AreScopesAvailable(application.Scopes, requestData.Scopes) {
 		http.Error(w, "Invalid or unavailable scopes requested", http.StatusBadRequest)
 		return
 	}
@@ -136,16 +155,16 @@ func handleRegisterClient(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTokenRequest handles the "/token" endpoint.
-func handleTokenRequest(w http.ResponseWriter, r *http.Request) {
-	srv.HandleTokenRequest(w, r)
+func (httpServer *HttpServer) handleTokenRequest(w http.ResponseWriter, r *http.Request) {
+	httpServer.srv.HandleTokenRequest(w, r)
 }
 
 // handleInspectToken handles the "/inspect" endpoint.
-func handleInspectToken(w http.ResponseWriter, r *http.Request) {
+func (httpServer *HttpServer) handleInspectToken(w http.ResponseWriter, r *http.Request) {
 	// Implementation...
 }
 
 // handleValidateToken handles the "/validate" endpoint.
-func handleValidateToken(w http.ResponseWriter, r *http.Request) {
+func (httpServer *HttpServer) handleValidateToken(w http.ResponseWriter, r *http.Request) {
 	// Implementation...
 }

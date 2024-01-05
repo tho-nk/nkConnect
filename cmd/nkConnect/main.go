@@ -4,5 +4,5 @@ package main
 import "nkConnect/internal/server"
 
 func main() {
-	server.Run()
+	server.GetHttpServerInstance().Run()
 }

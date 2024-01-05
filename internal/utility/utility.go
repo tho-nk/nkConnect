@@ -1,5 +1,5 @@
-// internal/oauth/oauth.go
-package oauth
+// internal/utility/utility.go
+package utility
 
 // Helper function to check if the requested scopes are available for the application.
 func AreScopesAvailable(applicationScopes, requestedScopes []string) bool {
